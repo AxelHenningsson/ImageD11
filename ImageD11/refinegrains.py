@@ -830,37 +830,43 @@ def compute_lp_factor( colfile, **kwds ):
         colfile.addcolumn(lpg, "Lorentz_per_grain")
 
 
-import math
-
-def cosd(x): return numpy.cos( x * math.pi/180 )
-def sind(x): return numpy.sin( x * math.pi/180 )
-
 def lf( tth, eta ):
+    """
+    INPUT: 2*theta and eta in degrees. Can be numpy arrays or floats.
 
-    sin_2t  = sind( tth )
-    sin_eta = sind( numpy.abs( eta ) )
-    sin2_t  = sind( tth/2 )*sind( tth/2 )
-    # pure guesswork
-    return  sin_2t * ( sin_eta + sin2_t )
+    OUTPUT: Lorentz scaling factor for intensity. Same data type as input.
 
-    # unreachable code here:
-    #  ... problem that cos^2_p - sin^2 can be < 0
-    #       must mean that p is NOT eta
+    NOTE: If eta=0 we define L as numpy.nan. This allows for 1/lf( tth, eta ) to
+          be defined also as numpy.nan without a zero division error raised.
+          Furthermore we assume the beam stop guarantees that theta>0 always.
 
-    cos_2t = cosd( tth )
+    EXPLANATION:
+    Compute the Lorentz Factor defined for 3DXRD as
 
-    cos_t  = cosd( tth/2 )
-    sin_t  = sind( tth/2 )
-    # our eta is their psi + 90 degrees
-    cos_p  = cosd( eta + 90 )
+    	L( theta,eta ) = sin( 2*theta )*|sin( eta )|
 
-    bot = sin_2t * numpy.sqrt( cos_p * cos_p - sin_t * sin_t )
+    This is verified by:
 
-    top = (1 + cos_2t * cos_2t)*cos_2t
-    # Wondering if there is a div0 to fear
-    # Certainly lf can be infinite, so mask this problem as 1e6
-    bot = numpy.where( numpy.abs ( bot ) > 1e-6 , bot, 1e-6 )
-    return top / bot
+        * Kabsch, W. (1988). Evaluation of single-crystal X-ray diraction data
+          from a position-sensitive detector
+        * Poulsen, H. F. (2004). 3DXRD { a new probe for materials science. 
+          Roskilde: Riso National Laboratory
+
+    and can be derived with support of
+        * Als-Nielsen, J. and McMorrow, D. (2017). Elements of Modern X-ray Physics
+
+
+    MODIFIED: 7 Feb 2019 by Axel Henningsson.
+    """
+
+    sin_tth = numpy.sin( numpy.radians(tth) )
+    sin_eta = numpy.sin( numpy.radians(eta) )
+    L = sin_tth*abs( sin_eta )
+    try:
+        L[ L==0 ] = numpy.nan
+    except:
+        if L==0: L = numpy.nan
+    return L
 
 
 def compute_total_intensity( colfile, indices, tth_range, ntrim = 2, quiet = False ):
